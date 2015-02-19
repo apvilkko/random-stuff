@@ -1,0 +1,26 @@
+<html>
+<head>
+  <title>Julia fractals with JS &amp; canvas</title>
+  <style>
+    html, body { margin: 0, padding: 0 }
+    #controls { float: right; max-width: 17%; }
+    input[type=number] { width: 5em; }
+  </style>
+</head>
+<body>
+  <div id="controls">
+    Iterations <input value="32" id="iterations" type="number"><br>
+    Escape radius <input value="1.8" id="escape" type="number"><br>
+    <button onclick="julia.apply()">Apply</button>
+    <button onclick="julia.reset()">Reset</button>
+    <br>
+    <label><input checked="checked" id="mousec" onclick="julia.mouseMoveOption(this)" type="checkbox">Mouse move updates C</label>
+    <p>Time per frame: <span id="timetaken">419</span> ms</p>
+    <p>C: <span id="cpos">0.2792 + 0.2203i</span></p>
+    <p>Scale: <span id="scale">1</span></p>
+  </div>
+  <div id="content"></div>
+  <script src="julia.js"></script>
+
+</body>
+</html>
