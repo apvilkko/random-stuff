@@ -1,4 +1,4 @@
-/* global window, document */
+/* global _, window, document */
 
 'use strict';
 
@@ -12,6 +12,7 @@ function Julia(colorPalette) {
   this.iterations = 32;
   this.er = 1.9;
   this.drawing = false;
+  this.syncer = _.identity;
 }
 
 Julia.prototype.setColor = function (color) {
@@ -63,14 +64,14 @@ Julia.prototype.scaleY = function (y) {
 
 Julia.prototype.traverse = function (iterations, phase) {
   var adder = phase === 1 ? 2 : 1;
-  var sx, sy;
-  for (var x = 0; x < this.CANVAS_WIDTH; x += adder) {
-    for (var y = 0; y <= this.CANVAS_HEIGHT/2; y += adder) {
+  var sx, sy, x, y, width = this.CANVAS_WIDTH, height = this.CANVAS_HEIGHT;
+  for (x = 0; x < width; x += adder) {
+    for (y = 0; y <= height/2; y += adder) {
       this.setColor(this.colorPalette.map(this.iterate(x, y), iterations));
       this.drawPixel(x, y);
       // Use point symmetry
-      sx = this.CANVAS_WIDTH - x;
-      sy = this.CANVAS_HEIGHT - y;
+      sx = width - x;
+      sy = height - y;
       this.drawPixel(sx, sy);
       if (adder === 2) {
         this.drawPixel(x + 1, y);
@@ -82,6 +83,12 @@ Julia.prototype.traverse = function (iterations, phase) {
       }
     }
   }
+  /*for (x = 0; x < width; ++x) {
+    this.setColor(this.colorPalette.map(x, width));
+    for (y = 0; y < height; ++y) {
+      this.drawPixel(x, y);
+    }
+  }*/
 };
 
 Julia.prototype.draw = function () {
@@ -96,9 +103,10 @@ Julia.prototype.draw = function () {
   this.drawing = false;
 };
 
-Julia.prototype.apply = function () {
-  this.iterations = parseInt(document.getElementById('iterations').value, 10);
-  this.er = parseFloat(document.getElementById('escape').value, 10);
+Julia.prototype.apply = function (config) {
+  this.iterations = config.iterations;
+  this.er = config.er;
+  this.setC(config.cx, config.cy);
   this.draw();
 };
 
@@ -122,11 +130,10 @@ Julia.prototype.initCanvas = function () {
   this.displayScale();
 };
 
-Julia.prototype.setC = function (cx, cy) {
+Julia.prototype.setC = function (cx, cy, sync) {
   this.cx = cx;
   this.cy = cy;
-  document.getElementById('cpos').innerHTML =
-    ('' + cx).substr(0, 6) + ' + ' + ('' + cy).substr(0, 6) + 'i';
+  this.syncer({cx: this.cx, cy: this.cy});
 };
 
 Julia.prototype.zoom = function (delta) {
@@ -135,8 +142,15 @@ Julia.prototype.zoom = function (delta) {
   this.draw();
 };
 
-Julia.prototype.mouseMoveOption = function (cb) {
-  this.moveC = cb.checked;
+Julia.prototype.getConfig = function () {
+  return {
+    iterations: this.iterations,
+    er: this.er,
+    cx: this.cx,
+    cy: this.cy,
+    scale: this.scale,
+    moveC: this.moveC
+  };
 };
 
 Julia.prototype.reset = function () {
@@ -146,10 +160,12 @@ Julia.prototype.reset = function () {
   this.scale = null;
   this.iterations = 32;
   this.er = 1.9;
-  document.getElementById('iterations').value = 32;
-  document.getElementById('escape').value = 1.8;
   this.initCanvas();
   this.draw();
+};
+
+Julia.prototype.setSyncer = function (cb) {
+  this.syncer = cb;
 };
 
 Julia.prototype.init = function () {
@@ -163,20 +179,19 @@ Julia.prototype.init = function () {
   this.setC(-0.8, 0.156);
   this.mx = 0;
   this.my = 0;
-  document.getElementById('iterations').value = 32;
-  document.getElementById('escape').value = 1.8;
   this.initCanvas();
   this.moveC = true;
-  document.getElementById('mousec').checked = true;
 
-  this.canvas.addEventListener('mousemove', function (event) {
+  function moveHandler(event) {
     this.mx = this.scaleX(event.clientX);
     this.my = this.scaleY(event.clientY);
     if (this.moveC && !this.drawing) {
-      this.setC(this.mx, this.my);
+      this.setC(this.mx, this.my, true);
       this.draw();
     }
-  }.bind(this));
+  }
+
+  this.canvas.addEventListener('mousemove', _.throttle(moveHandler.bind(this), 100));
 
   this.canvas.addEventListener('click', function () {
     this.setC(this.mx, this.my);
@@ -202,21 +217,124 @@ Julia.prototype.init = function () {
 };
 
 function ColorPalette() {
-  this.rr = [73, 255, 255, 213];
-  this.gg = [4, 255, 248, 0];
-  this.bb = [122, 255, 0, 166];
   this.n = 1024;
   this.pr = [];
   this.pg = [];
   this.pb = [];
+  this.inverted = false;
+  this.custom = false;
+  this.choices = [
+    {
+      id: 1,
+      name: 'Purple Rain',
+      palette: {
+        r: [73, 255, 255, 213],
+        g: [4, 255, 248, 0],
+        b: [122, 255, 0, 166]
+      }
+    },
+    {
+      id: 2,
+      name: '256 Shades Of Grey',
+      palette: {
+        r: [0, 255],
+        g: [0, 255],
+        b: [0, 255]
+      }
+    },
+    {
+      id: 3,
+      name: 'Dusk At Sea',
+      palette: {
+        r: [228, 223, 149, 84,  43,  0,   0,   0,  0],
+        g: [92,  168, 161, 131, 95,  68,  56,  42, 39],
+        b: [57,  120, 178, 181, 160, 137, 119, 99, 90]
+      }
+    },
+    {
+      id: 4,
+      name: 'R-G-B',
+      palette: {
+        r: [255, 0, 0],
+        g: [0, 255, 0],
+        b: [0, 0, 255]
+      }
+    },
+    {
+      id: 5,
+      name: 'Crimson Idol',
+      palette: {
+        r: [0, 220, 255],
+        g: [0, 20, 255],
+        b: [0, 60, 255]
+      }
+    },
+  ];
+  this.current = this.choices[0];
+  this.customvalues = [
+    {r: 0, g: 0, b: 0},
+    {r: 60, g: 128, b: 0},
+    {r: 255, g: 255, b: 255},
+  ];
 }
+
+ColorPalette.prototype.getConfig = function () {
+  return {
+    current: this.current,
+    choices: this.choices,
+    custom: this.custom,
+    customvalues: this.customvalues
+  };
+};
+
+ColorPalette.prototype.useCustom = function (value) {
+  if (this.custom !== value) {
+    this.custom = value;
+    this.preCalc();
+    return true;
+  }
+};
+
+ColorPalette.prototype.invert = function (value) {
+  if (value !== this.inverted) {
+    this.inverted = value;
+    this.preCalc();
+    return true;
+  }
+};
+
+ColorPalette.prototype.apply = function (paletteId) {
+  if (this.current.id === paletteId) {
+    return;
+  }
+  var found = _.find(this.choices, {id: paletteId});
+  if (found) {
+    this.current = found;
+    this.preCalc();
+  }
+};
 
 ColorPalette.prototype.lerp = function (a, b, f) {
   return a + f * (b - a);
 };
 
+ColorPalette.prototype.getPalette = function () {
+  if (!this.custom) {
+    return this.current.palette;
+  }
+  return {
+    r: _.map(this.customvalues, 'r'),
+    g: _.map(this.customvalues, 'g'),
+    b: _.map(this.customvalues, 'b')
+  };
+};
+
 ColorPalette.prototype.preCalc = function () {
-  var l = this.rr.length;
+  this.pr = [];
+  this.pg = [];
+  this.pb = [];
+  var palette = this.getPalette();
+  var l = palette.r.length;
   var points = [];
   for (var j = 0; j < l; ++j) {
     points.push(j / (l - 1) * this.n);
@@ -225,11 +343,7 @@ ColorPalette.prototype.preCalc = function () {
     var w1 = 1, w2 = 0;
     var i1 = 0, i2 = 0;
     for (var k = 0; k < points.length; ++k) {
-      if (points[k] === i) {
-        w1 = 1;
-        i1 = k;
-        break;
-      } else if (k > 0 && points[k] > i) {
+      if (points[k] > i) {
         i1 = k - 1;
         i2 = k;
         w2 = (points[k] - i)/(Math.abs(points[i2] - points[i1]));
@@ -238,9 +352,14 @@ ColorPalette.prototype.preCalc = function () {
       }
     }
 
-    this.pr.push(this.lerp(this.rr[i1], this.rr[i2], w1));
-    this.pg.push(this.lerp(this.gg[i1], this.gg[i2], w1));
-    this.pb.push(this.lerp(this.bb[i1], this.bb[i2], w1));
+    this.pr.push(this.lerp(palette.r[i1], palette.r[i2], w1));
+    this.pg.push(this.lerp(palette.g[i1], palette.g[i2], w1));
+    this.pb.push(this.lerp(palette.b[i1], palette.b[i2], w1));
+  }
+  if (this.inverted) {
+    this.pr.reverse();
+    this.pg.reverse();
+    this.pb.reverse();
   }
 };
 
@@ -253,10 +372,56 @@ ColorPalette.prototype.map = function (value, iterations) {
   ];
 };
 
-var julia;
+var julia, palette;
 (function() {
-  var colorPalette = new ColorPalette();
-  colorPalette.preCalc();
-  julia = new Julia(colorPalette);
+  palette = new ColorPalette();
+  palette.preCalc();
+  julia = new Julia(palette);
   julia.init();
 })();
+
+
+var juliaControlsApp = angular.module('JuliaControls', []);
+
+juliaControlsApp.controller('ControlsController', function ($scope, $timeout) {
+  function sync(data) {
+    $timeout(function () {
+      _.each(data, function (value, key) {
+        $scope.$apply(function () {
+          $scope.data[key] = value;
+        });
+      });
+    });
+  }
+  julia.setSyncer(sync);
+  $scope.data = julia.getConfig();
+  $scope.palette = palette.getConfig();
+  $scope.apply = function () {
+    julia.apply($scope.data);
+  };
+  $scope.applyPalette = function () {
+    palette.preCalc();
+    julia.draw();
+  };
+  $scope.reset = function () {
+    julia.reset();
+    $scope.data = julia.getConfig();
+  };
+  $scope.$watch('data.moveC', function (value) {
+    julia.moveC = value;
+  });
+  $scope.$watch('palette.current', function (value) {
+    palette.apply(value.id);
+    julia.draw();
+  });
+  $scope.$watch('palette.invert', function (value) {
+    if (palette.invert(value)) {
+      julia.draw();
+    }
+  });
+  $scope.$watch('palette.custom', function (value) {
+    if (palette.useCustom(value)) {
+      julia.draw();
+    }
+  });
+});
