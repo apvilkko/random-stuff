@@ -7,7 +7,7 @@ function Julia(colorPalette) {
   this.context = null;
   this.canvas = null;
   this.canvasData = null;
-  this.color = {};
+  this.color = [0, 0, 0];
   this.scale = null;
   this.iterations = 32;
   this.er = 1.9;
@@ -15,15 +15,17 @@ function Julia(colorPalette) {
 }
 
 Julia.prototype.setColor = function (color) {
-  this.color = color;
+  this.color[0] = color[0];
+  this.color[1] = color[1];
+  this.color[2] = color[2];
 };
 
 Julia.prototype.drawPixel = function (x, y) {
   var index = (x + y * this.CANVAS_WIDTH) * 4;
-  this.canvasData.data[index + 0] = this.color.r;
-  this.canvasData.data[index + 1] = this.color.g;
-  this.canvasData.data[index + 2] = this.color.b;
-  this.canvasData.data[index + 3] = this.color.a;
+  this.canvasData.data[index + 0] = this.color[0];
+  this.canvasData.data[index + 1] = this.color[1];
+  this.canvasData.data[index + 2] = this.color[2];
+  this.canvasData.data[index + 3] = 255;
 };
 
 Julia.prototype.updateCanvas = function () {
@@ -243,13 +245,12 @@ ColorPalette.prototype.preCalc = function () {
 };
 
 ColorPalette.prototype.map = function (value, iterations) {
-  var s = value/iterations;
-  return {
-    r: this.pr[Math.floor(s*this.n)],
-    g: this.pg[Math.floor(s*this.n)],
-    b: this.pb[Math.floor(s*this.n)],
-    a: 255
-  };
+  var scale = Math.floor(value/iterations*this.n);
+  return [
+    this.pr[scale],
+    this.pg[scale],
+    this.pb[scale]
+  ];
 };
 
 var julia;
