@@ -120,7 +120,7 @@ function nearest(value, n) {
 }
 
 Julia.prototype.initCanvas = function () {
-  this.CANVAS_WIDTH = nearest(Math.floor(window.innerWidth * 0.8), 8);
+  this.CANVAS_WIDTH = nearest(Math.floor(window.innerWidth), 8)-8;
   this.CANVAS_HEIGHT = nearest(Math.floor(this.CANVAS_WIDTH*9/16), 8);
   this.canvas.setAttribute('width', this.CANVAS_WIDTH);
   this.canvas.setAttribute('height', this.CANVAS_HEIGHT);
@@ -180,7 +180,7 @@ Julia.prototype.init = function () {
   this.mx = 0;
   this.my = 0;
   this.initCanvas();
-  this.moveC = true;
+  this.moveC = false;
 
   function moveHandler(event) {
     this.mx = this.scaleX(event.clientX);
@@ -223,6 +223,7 @@ function ColorPalette() {
   this.pb = [];
   this.inverted = false;
   this.custom = false;
+  this.paletteLength = 3;
   this.choices = [
     {
       id: 1,
@@ -287,12 +288,11 @@ ColorPalette.prototype.getConfig = function () {
   };
 };
 
-ColorPalette.prototype.useCustom = function (value) {
-  if (this.custom !== value) {
-    this.custom = value;
-    this.preCalc();
-    return true;
-  }
+ColorPalette.prototype.useCustom = function (value, length) {
+  this.custom = value;
+  this.paletteLength = length;
+  this.preCalc();
+  return true;
 };
 
 ColorPalette.prototype.invert = function (value) {
@@ -322,10 +322,11 @@ ColorPalette.prototype.getPalette = function () {
   if (!this.custom) {
     return this.current.palette;
   }
+  var limited = _.take(this.customvalues, this.paletteLength);
   return {
-    r: _.map(this.customvalues, 'r'),
-    g: _.map(this.customvalues, 'g'),
-    b: _.map(this.customvalues, 'b')
+    r: _.map(limited, 'r'),
+    g: _.map(limited, 'g'),
+    b: _.map(limited, 'b')
   };
 };
 
@@ -398,19 +399,30 @@ juliaControlsApp.controller('ControlsController', function ($scope, $timeout) {
     });
   }
   julia.setSyncer(sync);
+
   $scope.data = julia.getConfig();
   $scope.palette = palette.getConfig();
+  $scope.paletteLength = 3;
+  $scope.paletteBins = _.range($scope.paletteLength);
+  $scope.visible = true;
+
   $scope.apply = function () {
     julia.apply($scope.data);
   };
   $scope.applyPalette = function () {
-    palette.preCalc();
+    palette.useCustom($scope.palette.custom, $scope.paletteLength);
     julia.draw();
   };
   $scope.reset = function () {
     julia.reset();
     $scope.data = julia.getConfig();
   };
+  $scope.toggleVisible = function () {
+    $scope.visible = !$scope.visible;
+  };
+  $scope.$watch('paletteLength', function (value) {
+    $scope.paletteBins = _.range(value);
+  });
   $scope.$watch('data.moveC', function (value) {
     julia.moveC = value;
   });
@@ -424,7 +436,7 @@ juliaControlsApp.controller('ControlsController', function ($scope, $timeout) {
     }
   });
   $scope.$watch('palette.custom', function (value) {
-    if (palette.useCustom(value)) {
+    if (palette.useCustom(value, $scope.paletteLength)) {
       julia.draw();
     }
   });
