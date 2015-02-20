@@ -343,7 +343,11 @@ ColorPalette.prototype.preCalc = function () {
     var w1 = 1, w2 = 0;
     var i1 = 0, i2 = 0;
     for (var k = 0; k < points.length; ++k) {
-      if (points[k] > i) {
+      if (i === 0) {
+        i1 = 0;
+        i2 = 1;
+        w1 = 0;
+      } else if (points[k] > i) {
         i1 = k - 1;
         i2 = k;
         w2 = (points[k] - i)/(Math.abs(points[i2] - points[i1]));
