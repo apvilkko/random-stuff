@@ -1,0 +1,35 @@
+{
+  "name": "beach",
+  "version": "1.0.0",
+  "description": "beach",
+  "main": "index.html",
+  "scripts": {
+    "clean": "rimraf dist/*",
+    "prebuild": "npm run clean -s",
+    "build": "npm run build:scripts -s && npm run build:styles -s && npm run build:markup -s",
+    "build:scripts": "browserify -d assets/scripts/main.js -p [minifyify --compressPath . --map main.js.map --output dist/main.js.map] | hashmark -n dist/main.js -s -l 8 -m assets.json \"dist/{name}{hash}{ext}\"",
+    "build:styles": "stylus assets/styles/main.styl -m -o dist/ && hashmark -s -l 8 -m assets.json dist/main.css \"dist/{name}{hash}{ext}\"",
+    "build:markup": "jade assets/markup/index.jade --obj assets.json -o dist",
+    "watch": "npm run watch:build -s",
+    "watch:build": "nodemon -q -w assets/ --ext \".\" --exec \"npm run build\"",
+    "serve": "http-server -p 9090 dist/",
+    "live-reload": "live-reload --port 9091 --delay 5000 dist/",
+    "open:dev": "opener http://localhost:9090",
+    "dev": "npm run open:dev -s && parallelshell \"npm run live-reload -s\" \"npm run serve -s\" \"npm run watch -s\"",
+    "test": "npm run lint -s",
+    "lint": "jshint assets/scripts"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "browserify": "^11.0.1",
+    "hashmark": "^3.0.0",
+    "http-server": "^0.8.0",
+    "jade": "^1.11.0",
+    "jshint": "^2.8.0",
+    "live-reload": "^1.1.0",
+    "nodemon": "^1.4.1",
+    "rimraf": "^2.4.2",
+    "stylus": "^0.52.0"
+  }
+}

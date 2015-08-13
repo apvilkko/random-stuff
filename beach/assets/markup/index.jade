@@ -1,0 +1,12 @@
+doctype html
+html(lang="en")
+  head
+    title Beach
+    script(src="#{locals['dist/main.js'].substr(5)}")
+    if compileDebug
+      script(src="//localhost:9091/livereload.js")
+    link(rel="stylesheet",href="#{locals['dist/main.css'].substr(5)}")
+  body
+    .content
+      .sea
+        .sand
