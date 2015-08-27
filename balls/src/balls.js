@@ -58,7 +58,10 @@
     var abx = a.x - b.x;
     var aby = a.y - b.y;
     this.pairRadius = Math.sqrt(abx * abx + aby * aby) / 2;
-    this.pairPosition = 0;
+    this.pairPosition = Math.floor(Math.atan2(abx, aby) * 180 / Math.PI);
+    if (this.pairPosition < 0) {
+      this.pairPosition += 360;
+    }
   };
 
   ctx.Scene = function () {
