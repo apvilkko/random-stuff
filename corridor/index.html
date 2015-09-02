@@ -10,11 +10,20 @@
       width: 100%;
       overflow: hidden;
     }
+    .note {
+      position: absolute;
+      top: 5px;
+      left: 5px;
+      font-family: monospace;
+      color: #770000;
+      font-weight: bold;
+    }
   </style>
   <script src="src/corridor.js"></script>
 </head>
 <body onload="window.main();">
   <canvas id="corridor-canvas">
   </canvas>
+  <div class="note">Press R for a new variation</div>
 </body>
 </html>
