@@ -5,6 +5,11 @@
   var synth = null;
   var seq = null;
   var cc = null;
+  var analyser = null;
+  var analyserData = null;
+  var analyserBufferLength = null;
+  var FRAMETIME = 0.019;
+  //var FRAMETIME = 0.500;
 
   var NOTES = {
     'G#1': 51.91,
@@ -16,6 +21,8 @@
   };
 
   var KPATTERNS = [
+    [1,0,0,0,1,0,0,0,1,0,0,0,1,0,1,1],
+    [1,0,0,0,1,0,0,0,1,1,1,1,1,1,1,1],
     [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0],
     [1,0,0,1,0,0,1,0,1,0,0,0,0,0,0,0],
     [1,0,1,0,0,0,1,0,1,0,0,0,0,0,0,0],
@@ -24,6 +31,7 @@
 
   var PATTERNS = [
     ['G#1',0,0,0,'G#1',0,0,'G#1',0,0,'G#1',0,0,0,'G#1',0],
+    ['B1',0,0,0,0,0,0,'B1',0,0,0,0,0,0,0,0],
     ['E1','E2','E1','E2','E1','E2','E1',0,0,0,'E1','E2',0,0,0,0],
     ['A1',0,'A1',0,0,0,'A1',0,0,0,'A1',0,0,0,'A1',0],
     ['E1',0,'C2',0,'B1',0,'E1',0,'E1',0,'C2',0,'B1',0,'E1',0]
@@ -35,6 +43,20 @@
     kpattern: 0,
     pitch: 1.0
   };
+
+  function connectChain(chain) {
+    for (var i = 0; i < chain.length - 1; ++i) {
+      chain[i].connect(chain[i+1]);
+    }
+  }
+
+  function randInt(n) {
+    return Math.floor(Math.random() * n);
+  }
+
+  function randRange(min, max) {
+    return min + Math.random() * (max - min);
+  }
 
   function trigger(eventName, data) {
     d.dispatchEvent(new d.defaultView.CustomEvent(eventName, {detail: data}));
@@ -62,13 +84,13 @@
       this.output = this.oscillator;
 
       var that = this;
-      d.addEventListener(that.name + 'frequency', function (value) {
+      d.addEventListener(that.name + '_frequency', function (value) {
         that.setFrequency(value.detail);
       });
-      d.addEventListener(that.name + 'detune', function (value) {
+      d.addEventListener(that.name + '_detune', function (value) {
         that.oscillator.detune.value = value.detail;
       });
-      d.addEventListener(that.name + 'type', function (value) {
+      d.addEventListener(that.name + '_type', function (value) {
         that.oscillator.type = value.detail;
       });
     };
@@ -90,6 +112,11 @@
       this.input = this.gain;
       this.output = this.gain;
       this.amplitude = this.gain.gain;
+
+      var that = this;
+      d.addEventListener(that.name + '_gain', function (value) {
+        that.amplitude = value.detail;
+      });
     };
 
     VCA.prototype.connect = connector;
@@ -109,7 +136,7 @@
       this.frequency = this.filter.frequency;
 
       var that = this;
-      d.addEventListener('set'+ that.name + 'Q', function (value) {
+      d.addEventListener(that.name + '_Q', function (value) {
         that.filter.Q = value.detail;
       });
     };
@@ -127,11 +154,33 @@
       this.delay.delayTime.value = delayValue;
       this.input = this.delay;
       this.output = this.delay;
+
+      var that = this
+      d.addEventListener(that.name + '_delay', function (value) {
+        that.delay.delayTime.value = value.detail * 60.0 / parameters.tempo;
+      });
     }
 
     Delay.prototype.connect = connector;
 
     return Delay;
+  })();
+
+  var Compressor = (function () {
+    function Compressor(context) {
+      this.name = 'Compressor';
+      this.compressor = context.createDynamicsCompressor();
+      this.compressor.threshold.value = -3;
+      this.compressor.ratio.value = 12;
+      this.compressor.attack.value = 0;
+      this.compressor.release.value = 0.25;
+      this.input = this.compressor;
+      this.output = this.compressor;
+    }
+
+    Compressor.prototype.connect = connector;
+
+    return Compressor;
   })();
 
   var Widener = (function () {
@@ -176,16 +225,16 @@
       this.max = 1;
 
       var that = this;
-      d.addEventListener(that.name + 'gateOn', function () {
+      d.addEventListener(that.name + '_gateOn', function () {
         that.trigger();
       });
-      d.addEventListener('set'+ name + 'A', function (value) {
+      d.addEventListener(name + '_A', function (value) {
         that.attackTime = value.detail;
       });
-      d.addEventListener('set' + name + 'R', function (value) {
+      d.addEventListener(name + '_R', function (value) {
         that.releaseTime = value.detail;
       });
-      d.addEventListener('set' + name + 'Max', function (value) {
+      d.addEventListener(name + '_max', function (value) {
         that.max = value.detail;
       });
     };
@@ -215,38 +264,41 @@
     var filter = new Filter(audio);
     var fenv = new EnvelopeGenerator('F', audio);
     var delay = new Delay(audio, 0.52);
-    var feedback = new VCA(audio, 'feedback', 0.6);
+    var feedback = new VCA(audio, 'Feedback', 0.6);
     var widener = new Widener(audio);
-    vco.connect(filter);
-    filter.connect(vca);
+    var limiter = new Compressor(audio);
+    var masterGain = new VCA(audio, 'Master', 0.6);
+    var delayGain = new VCA(audio, 'DelayGain', 0.33);
+    analyser = audio.createAnalyser();
+    analyser.fftSize = 2048;
+    var bufferLength = analyser.frequencyBinCount;
+    analyserData = new Uint8Array(bufferLength);
+    analyser.getByteTimeDomainData(analyserData);
+    analyserBufferLength = analyser.frequencyBinCount;
+
+    connectChain([vco, filter, vca, delay, feedback, delay, delayGain]);
+    connectChain([vca, masterGain, limiter, analyser, audio.destination]);
+    widener.connect(delayGain, masterGain);
     fenv.connect(filter.frequency, parameters.pitch * 100, parameters.pitch * 3000);
     aenv.connect(vca.amplitude);
-    vca.connect(delay);
-    delay.connect(feedback);
-    feedback.connect(delay);
-    vca.connect(audio.destination);
-    var delayGain = new VCA(audio, 'DelayGain', 0.33);
-    delay.connect(delayGain);
-    widener.connect(delayGain, audio.destination);
 
-    var kvco = new VCO(audio, 'kickVCO');
-    var kvca = new VCA(audio, 'kickVCA');
-    var penv = new EnvelopeGenerator('kickP', audio);
-    var kaenv = new EnvelopeGenerator('kickA', audio);
-    kvco.connect(kvca);
+    var kvco = new VCO(audio, 'KickVCO');
+    var kvca = new VCA(audio, 'KickVCA');
+    var penv = new EnvelopeGenerator('KickP', audio);
+    var kaenv = new EnvelopeGenerator('KickA', audio);
+    connectChain([kvco, kvca, masterGain]);
     kvco.oscillator.type = 'sine';
     kaenv.connect(kvca.amplitude);
     penv.connect(kvco.oscillator.frequency, 20, 250);
-    trigger('setkickPA', 0.005);
-    trigger('setkickPR', 0.100);
-    trigger('setkickAA', 0.005);
-    trigger('setkickAR', 0.300);
-    kvca.connect(audio.destination);
+    trigger('KickP_A', 0.005);
+    trigger('KickP_R', 0.050);
+    trigger('KickA_A', 0.005);
+    trigger('KickA_R', 0.300);
 }
 
   ctx.Synth.prototype.noteOn = function () {
-    trigger('FgateOn');
-    trigger('AgateOn');
+    trigger('F_gateOn');
+    trigger('A_gateOn');
   }
 
   ctx.Sequencer = function () {
@@ -255,21 +307,30 @@
     this.scheduleAheadTime = 0.1;
     this.nextNoteTime = audio.currentTime;
     this.current16thNote = 0;
+    this.lastAnalyserTime = 0;
     this.randomize();
     this.synth = new Synth(audio);
   };
 
   ctx.Sequencer.prototype.randomize = function () {
-    parameters.pattern = Math.floor(Math.random() * PATTERNS.length);
-    parameters.kpattern = Math.floor(Math.random() * KPATTERNS.length);
-    parameters.tempo = 90 + Math.random() * 70;
-    parameters.pitch = 0.5 + Math.random();
+    parameters.pattern = randInt(PATTERNS.length);
+    parameters.kpattern = randInt(KPATTERNS.length);
+    parameters.tempo = randRange(95, 150);
+    parameters.pitch = randRange(0.5, 1.5);
     this.secondsPerBeat = 60.0 / parameters.tempo;
-    trigger('setAA', 0.025);
-    trigger('setAR', 0.3 + Math.random() * 0.5);
-    trigger('setFA', 0.025);
-    trigger('setFR', 0.1 + Math.random() * 0.5);
-    trigger('VCOtype', Math.random() > 0.5 ? 'sawtooth' : 'square');
+    trigger('A_A', 0.025);
+    trigger('A_R', randRange(0.1, 0.6));
+    trigger('F_A', 0.025);
+    trigger('F_R', randRange(0.1, 0.6));
+    trigger('VCO_type', Math.random() > 0.5 ? 'sawtooth' : 'square');
+
+    trigger('KickP_R', randRange(0.050, 0.150));
+    trigger('KickP_max', randRange(100, 280));
+
+    trigger('Delay_delay', randInt(4) * 1.01 / 4);
+    trigger('DelayGain_gain', randRange(0.05, 0.55));
+    trigger('Feedback_gain', randRange(0.05, 0.55));
+
     console.log(parameters);
   };
 
@@ -282,35 +343,69 @@
   };
 
   ctx.Sequencer.prototype.scheduleNote = function () {
-    if (this.current16thNote === 0) {
-      cc.fillRect(0, 0, canvas.width, canvas.height);
-    }
-    if (this.current16thNote % 4 === 0) {
-      cc.beginPath();
-      cc.arc(Math.random() * canvas.width,
-        Math.random() * canvas.height,
-        Math.random() * canvas.height * 0.2,
-        0, 2 * Math.PI, false);
-      cc.stroke();
-    }
-
     if (PATTERNS[parameters.pattern][this.current16thNote]) {
-      trigger('VCOfrequency', parameters.pitch * NOTES[PATTERNS[parameters.pattern][this.current16thNote]]);
-      trigger('setFMax', 1000 + Math.random() * 4000);
-      trigger('setFilterQ', 0.2 + Math.random() * 900);
-      trigger('VCOdetune', Math.floor(Math.random() * 6));
+      trigger('VCO_frequency', parameters.pitch * NOTES[PATTERNS[parameters.pattern][this.current16thNote]]);
+      trigger('F_max', randRange(1000, 5000));
+      trigger('Filter_Q', randRange(0.2, 900));
+      trigger('VCO_detune', randInt(6));
       this.synth.noteOn();
     }
     if (KPATTERNS[parameters.kpattern][this.current16thNote]) {
-      trigger('kickPgateOn');
-      trigger('kickAgateOn');
+      trigger('KickP_gateOn');
+      trigger('KickA_gateOn');
     }
   };
 
+  function dec2hex(i) {
+    return (i).toString(16).substr(0, 2).toUpperCase();
+  }
+
+  var lastArc = [{},{},{},{}];
+  var arcIndex = 0;
+
+  function drawArc(width, strength, dec) {
+    cc.lineWidth = width;
+    cc.strokeStyle = '#' + dec2hex(lastArc[arcIndex].r*512*strength/canvas.width) + '0000';
+    cc.beginPath();
+    cc.arc(lastArc[arcIndex].x, lastArc[arcIndex].y, lastArc[arcIndex].r, Math.PI, 2*Math.PI, false);
+    cc.stroke();
+    if (dec) {
+      arcIndex--;
+      if (arcIndex < 0) arcIndex = lastArc.length - 1;
+    }
+  }
+
   ctx.Sequencer.prototype.scheduler = function () {
-    while (this.nextNoteTime < this.audio.currentTime + this.scheduleAheadTime ) {
+    w.requestAnimationFrame(this.scheduler.bind(this));
+    if (this.nextNoteTime < this.audio.currentTime + this.scheduleAheadTime ) {
       this.scheduleNote();
       this.nextNote();
+    }
+    if (analyser && this.audio.currentTime > this.lastAnalyserTime + FRAMETIME) {
+      this.lastAnalyserTime = this.audio.currentTime;
+      cc.fillRect(0, 0, canvas.width, canvas.height);
+      drawArc(15, 1/4, true);
+      drawArc(20, 1/8, true);
+      drawArc(25, 1/16, true);
+
+      analyser.getByteTimeDomainData(analyserData);
+      var maxAmp = 0;
+      for(var i = 0; i < analyserBufferLength; i++) {
+        if (Math.abs(analyserData[i] - 128) > maxAmp) {
+          maxAmp = Math.abs(analyserData[i] - 128);
+        }
+      }
+      cc.strokeStyle = '#' + dec2hex(maxAmp*2) + '0000';
+      maxAmp = maxAmp / 256 * canvas.width;
+      cc.beginPath();
+      cc.lineWidth = 10;
+      lastArc[arcIndex] = {
+        x: canvas.width / 2,
+        y: canvas.height,
+        r: maxAmp
+      };
+      cc.arc(lastArc[arcIndex].x, lastArc[arcIndex].y, lastArc[arcIndex].r, Math.PI, 2*Math.PI, false);
+      cc.stroke();
     }
   };
 
@@ -327,13 +422,11 @@
     cc = canvas.getContext('2d');
     cc.fillStyle = "rgb(0,0,0)";
     cc.fillRect(0, 0, canvas.width, canvas.height);
-    cc.lineWidth = 2;
-    cc.strokeStyle = '#440000';
+    cc.lineWidth = 10;
+    cc.strokeStyle = '#660000';
 
     seq = new Sequencer();
-    setInterval(function () {
-      seq.scheduler();
-    }, 25);
+    seq.scheduler();
   }
 
   w.onkeyup = function (e) {
