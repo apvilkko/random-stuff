@@ -1,0 +1,29 @@
+{
+  "name": "mandala",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Antti Pekka Vilkko",
+  "license": "ISC",
+  "devDependencies": {
+    "browser-sync": "^2.10.0",
+    "browserify": "^12.0.1",
+    "color-scheme": "0.0.5",
+    "d3-browserify": "^3.4.12",
+    "domain": "0.0.1",
+    "gulp": "^3.9.0",
+    "gulp-concat": "^2.6.0",
+    "gulp-copy": "0.0.2",
+    "gulp-streamify": "^1.0.2",
+    "gulp-tap": "^0.1.3",
+    "gulp-tslint": "^4.0.0",
+    "gulp-util": "^3.0.7",
+    "tsify": "^0.12.2",
+    "tslint": "^3.0.0",
+    "typescript": "^1.6.2",
+    "vinyl-source-stream": "^1.1.0"
+  }
+}
