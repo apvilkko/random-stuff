@@ -10,7 +10,7 @@ Works best on desktop Chrome. In Firefox the animation is choppy. IE doesn't pla
 
 ## License/credits
 
-Ambient music by me with a sample [20061021.just.shower.flac](https://www.freesound.org/people/dobroide/sounds/24092/) by dobroide@freesound.org. CC BY 3.0
+Ambient music by me with a sample [20061021.just.shower.flac](https://www.freesound.org/people/dobroide/sounds/24092/) by dobroide (freesound.org). CC BY 3.0
 
 Photo modified by me from the [original by Josh Nece](https://www.flickr.com/photos/estafunk/5388667025). CC BY-NC-SA 2.0
 
