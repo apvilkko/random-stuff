@@ -1,4 +1,4 @@
-# Depressing Shower Thoughts
+# [Depressing Shower Thoughts](http://aapee.kapsi.fi/depressingshower/)
 
 A digital art project.
 
@@ -6,7 +6,7 @@ A digital art project.
 
 Nothing special: looping audio with random texts and a simple animation. The shower drops are maybe the most interesting. I did it with drawing lots of small lines on a canvas and animating it so that they fall in a semi-random way. There are two CSS animations: blur and transform scaling. Interestingly, you can't apply these both at the same time to the same element so you have to split it to parent and child elements with separate animations.
 
-Should work on all modern browsers. Desktop recommended.
+Works best on desktop Chrome. In Firefox the animation is choppy. IE doesn't play audio.
 
 ## License/credits
 
