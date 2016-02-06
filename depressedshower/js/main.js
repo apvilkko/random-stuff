@@ -1,51 +1,51 @@
 var ndrops = 100;
+var textDelay = 11500;
 var texts = [];
 
-function rand(n, m, a) {
-    return Math.floor((Math.random()*n)+(a || 1)) * (m || 1.0);
+function rand(n) {
+    return Math.floor((Math.random() * n) + 1);
 }
 
 var lastIndex = null;
-function getDepressingFact(first) {
+function getDepressingText(first) {
     var i = rand(texts.length) - 1;
     if (i === lastIndex) {
         i = rand(texts.length) - 1;
     }
     lastIndex = i;
-    var fact = texts[i];
-    var el = $('.depressing-fact');
+    var text = texts[i];
+    var el = $('.depressing-text');
     var fade = 1000;
     if (first) {
         el.hide();
-        el.html(fact);
+        el.html(text);
         el.fadeIn(fade);
         return;
     }
-    el.fadeOut(fade);
-    setTimeout(function () {
-        el.html(fact);
+    el.fadeOut(fade, function () {
+        el.html(text);
         el.fadeIn(fade);
-    }, fade);
-
+    });
 }
 
 function getTexts() {
     $.get('res/texts.json', function (data) {
         texts = data.texts;
-        getDepressingFact(true);
-        setInterval(getDepressingFact, 10000);
+        getDepressingText(true);
+        setInterval(getDepressingText, textDelay);
     });
 }
 
 var drops = [];
-var canvas = $("#canvas");
-var ctx = canvas[0].getContext("2d");
-var cH = canvas.height();
-var cW = canvas.width();
+var canvas = $('#canvas');
+var ctx = canvas[0].getContext('2d');
+var cH = 192;
+var cW = 192;
+
 function setupCanvas() {
-    canvas = $("#canvas");
-    cH = canvas.height();
-    cW = canvas.width();
+    canvas = $('#canvas');
+    cH = $('.box').height();
+    cW = $('.box').width();
     canvas[0].setAttribute('width', cW);
     canvas[0].setAttribute('height', cW);
 }
@@ -57,10 +57,8 @@ function getDropColor() {
 function addDrops() {
     setupCanvas();
     ctx.lineWidth = 1;
-    var c = $("#canvas");
-    var dX = rand(cW), dY = rand(cH), dC = getDropColor();
     for (var i = 0; i < ndrops; i++) {
-        drops.push({x: dX, y: dY, c: dC, d: rand(1)});
+        drops.push({x: rand(cW), y: rand(cH), c: getDropColor(), d: rand(1)});
     }
 }
 
@@ -87,15 +85,34 @@ function step() {
 }
 
 function startAudio() {
-    var myAudio = new Audio('res/shower.ogg');
-    myAudio.addEventListener('timeupdate', function() {
-        var buffer = 0.64;
-        if (this.currentTime > this.duration - buffer) {
-            this.currentTime = 0;
-            this.play();
-        }
-    }, false);
-    myAudio.play();
+    var filename = 'res/showerambience.ogg';
+    try {
+        var context = new (window.AudioContext || window.webkitAudioContext)();
+        var source = context.createBufferSource();
+        source.connect(context.destination);
+        var request = new XMLHttpRequest();
+        request.open('GET', filename, true);
+        request.responseType = 'arraybuffer';
+        request.onload = function() {
+            context.decodeAudioData(request.response, function(response) {
+                source.buffer = response;
+                source.start(0);
+                source.loop = true;
+            }, function () { console.error('The request failed.'); } );
+        };
+        request.send();
+    } catch(e) {
+        console.log('Web Audio API is not supported in this browser', e);
+        var myAudio = new Audio(filename);
+        myAudio.addEventListener('timeupdate', function() {
+            var buffer = 0.64;
+            if (this.currentTime > this.duration - buffer) {
+                this.currentTime = 0;
+                this.play();
+            }
+        }, false);
+        myAudio.play();
+    }
 }
 
 function main() {
