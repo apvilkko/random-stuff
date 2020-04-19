@@ -10,13 +10,17 @@ let data;
 const WIDTH = 256;
 const HEIGHT = 256;
 
-const FRAME_TIME = 5;
+const FRAME_TIME = 16;
 const ASPECT_RATIO = 1;
 const PALETTE_SIZE = 192;
 
 let paletteShift = 0;
 
 const rand = (min, max) => Math.random() * (max - min) + min;
+const randInt = (min, max) => min + Math.floor(Math.random() * (max - min + 1));
+
+const sample = (arr) =>
+  arr.length > 0 ? arr[randInt(0, arr.length - 1)] : undefined;
 
 const drawCircle = (x, y, r, strokeStyle = "#0f0", lineWidth) => {
   context.beginPath();
@@ -32,7 +36,12 @@ const initialize = (width, height) => {
   return {
     theta: 0,
     r1scale: rand(0.05, 0.4),
-    speed: rand(0.05, 0.15),
+    speed: rand(0.2, 0.8),
+    modifier: {
+      fn: sample(["sin", "cos"]),
+      a: rand(0.001, 0.1),
+      b: rand(0.001, 0.1),
+    },
   };
 };
 
@@ -68,17 +77,17 @@ const HSVtoRGB = (h, s, v) => {
 };
 
 function draw(width, height, canvasWidth, canvasHeight, color) {
-  const { theta, r1scale } = data;
+  const { theta, r1scale, modifier } = data;
   const x0 = canvasWidth / 2;
   const y0 = canvasHeight / 2;
   const r0 = scaler * 0.47;
-  const r1 = scaler * r1scale;
+  const modifierTerm = modifier.a * Math[modifier.fn](modifier.b * theta);
+  const r1 = (1 + modifierTerm) * scaler * r1scale;
   const rDelta = r0 - r1;
   const cosTheta = Math.cos(theta);
   const sinTheta = Math.sin(theta);
-  const x1 = x0 + rDelta * cosTheta;
-  const y1 = y0 + rDelta * sinTheta;
-  drawCircle(x0, y0, r0, "rgb(20,20,20)");
+  //const x1 = x0 + rDelta * cosTheta;
+  //const y1 = y0 + rDelta * sinTheta;
   const rgb = `rgb(${color[0]},${color[1]},${color[2]})`;
   //drawCircle(x1, y1, r1, rgb);
   const beta = (1 - r0 / r1) * theta;
@@ -88,14 +97,19 @@ function draw(width, height, canvasWidth, canvasHeight, color) {
   drawCircle(x2, y2, w, rgb);
 }
 
+const SPEED_STEP = 0.007;
+
 function animate(lastFrameTime) {
   const time = new Date().getTime();
   let updated = lastFrameTime;
 
   if (lastFrameTime + FRAME_TIME < time) {
     paletteShift = ++paletteShift % PALETTE_SIZE;
-    draw(WIDTH, HEIGHT, canvas.width, canvas.height, palette[paletteShift]);
-    data.theta += data.speed;
+    const target = data.theta + data.speed;
+    while (data.theta < target) {
+      draw(WIDTH, HEIGHT, canvas.width, canvas.height, palette[paletteShift]);
+      data.theta += SPEED_STEP;
+    }
     updated = time;
   }
 
@@ -160,6 +174,10 @@ const SCREEN_MARGIN_RATIO = 0.95;
 
 const clear = () => {
   context.clearRect(0, 0, canvas.width, canvas.height);
+  const x0 = canvas.width / 2;
+  const y0 = canvas.height / 2;
+  const r0 = scaler * 0.47;
+  drawCircle(x0, y0, r0, "rgb(20,20,20)");
 };
 
 const setupCanvas = () => {
